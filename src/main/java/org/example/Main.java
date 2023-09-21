@@ -13,6 +13,9 @@ import org.example.deserializer.EventHeaderV4Deserializer;
 import org.example.deserializer.EventType;
 import org.example.deserializer.QueryEventData;
 import org.example.deserializer.QueryEventDataDeserializer;
+import org.example.deserializer.TableMapEventData;
+import org.example.deserializer.TableMapEventDataDeserializer;
+import org.example.deserializer.TableMapEventMetadataDeserializer;
 import org.example.io.ByteArrayInputStream;
 import org.example.protocol.ErrorPacket;
 import org.example.protocol.GreetingPacket;
@@ -146,7 +149,7 @@ public class Main {
     }
 
     private static void requestBinaryLogStream(final PacketChannel channel) throws IOException {
-        long serverId = 65531; // http://bugs.mysql.com/bug.php?id=71178
+        long serverId = 65531;
         Command dumpBinaryLogCommand = new DumpBinaryLogCommand(serverId, binlogFilename, 4);
         channel.write(dumpBinaryLogCommand);
     }
@@ -203,10 +206,21 @@ public class Main {
             int eventBodyLength = (int) eventHeader.getDataLength() - checksumType.getLength();
             inputStream.enterBlock(eventBodyLength);
 
-
             QueryEventDataDeserializer queryEventDataDeserializer = new QueryEventDataDeserializer();
             QueryEventData deserialize = queryEventDataDeserializer.deserialize(inputStream);
 
+            System.out.println(JSONUtil.toJsonStr(deserialize));
+
+            inputStream.skipToTheEndOfTheBlock();
+            inputStream.skip(checksumType.getLength());
+
+            return new Event(eventHeader, deserialize);
+        } else if (EventType.TABLE_MAP.equals(eventHeader.getEventType())) {
+            int eventBodyLength = (int) eventHeader.getDataLength() - checksumType.getLength();
+            inputStream.enterBlock(eventBodyLength);
+
+            TableMapEventDataDeserializer tableMapEventDataDeserializer = new TableMapEventDataDeserializer();
+            TableMapEventData deserialize = tableMapEventDataDeserializer.deserialize(inputStream);
 
             System.out.println(JSONUtil.toJsonStr(deserialize));
 
